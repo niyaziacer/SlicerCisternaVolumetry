@@ -106,5 +106,9 @@ cases:
   cm³ for ambiens, 14887 / 5.098 cm³ for interpeduncularis - identical to the
   CLI output on the same data.
 
+## Developer
+
+Prof. Dr. Niyazi Acer (Retired, Erciyes University)
+
 Both runs confirm the Slicer extension and the CLI tool (`cisterna_core.py`)
 stay in sync, since they share the same code path.
