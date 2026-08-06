@@ -8,9 +8,11 @@ colored/labeled segmentation to the scene, and shows a volume table.
 The analysis logic (ROI boxes, axis-orientation normalization, mm-based
 scaling, connected-component selection) lives in
 `CisternaMagnaVolumetry/cisterna_core.py` - this is the **same code path** as
-the CLI tool (see [`cisterna_magna_volumetry_repo`](../cisterna_magna_volumetry_repo)),
+the CLI tool (see [`cisterna-magna-volumetry`](https://github.com/niyaziacer/cisterna-magna-volumetry)),
 just a separate copy. Both code bases were validated the same way on n=2 cases
 (Dice ~0.43-0.53, details in the CLI repo README).
+
+![Cisterna Magna Volumetry module output in 3D Slicer](Screenshots/1.jpg)
 
 ## Installation (no build required)
 
@@ -72,7 +74,7 @@ drag and drop) to load all three files: the T1 volume, `native_tissues`, and
 - The script's mask tends to slightly over-include adjacent cerebellar sulcal
   CSF compared to a manual mask.
 
-Full validation reports: `../cisterna_magna_volumetry_repo/docs/validation/`.
+Full validation reports: [`docs/validation/`](https://github.com/niyaziacer/cisterna-magna-volumetry/tree/main/docs/validation) in the CLI repo.
 
 ## Packaging as an extension / submitting to the Extensions Index
 
