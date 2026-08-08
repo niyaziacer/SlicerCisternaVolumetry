@@ -79,17 +79,14 @@ Full validation reports: [`docs/validation/`](https://github.com/niyaziacer/cist
 ## Packaging as an extension / submitting to the Extensions Index
 
 The `CMakeLists.txt` files in this folder follow the standard Slicer extension
-build template. Before submitting to the Extensions Index:
+build template and are kept consistent with this README (name, description,
+icon/screenshot URLs, license). See the repo's PR to
+[Slicer/ExtensionsIndex](https://github.com/Slicer/ExtensionsIndex) for the
+submission itself.
 
-1. Replace the `<your-username>` placeholders in `CMakeLists.txt` with your
-   actual GitHub username.
-2. Add a `CisternaMagnaVolumetry.png` icon and a `Screenshots/1.png`.
-3. Turn this folder into its own GitHub repo and open a PR against the Slicer
-   Extension Index ([instructions](https://github.com/Slicer/ExtensionsIndex)).
-
-It works fully without a build step too (via "Quick test" above) - submitting
-to the Extensions Index is only needed for distribution through the Extension
-Manager.
+It works fully without a build step too (via "Installation" above) -
+submitting to the Extensions Index is only needed for distribution through
+the built-in Extension Manager.
 
 ## Testing notes
 
@@ -106,9 +103,13 @@ cases:
   cm³ for ambiens, 14887 / 5.098 cm³ for interpeduncularis - identical to the
   CLI output on the same data.
 
+Both runs confirm the Slicer extension and the CLI tool (`cisterna_core.py`)
+stay in sync, since they share the same code path.
+
+## License
+
+[MIT](LICENSE)
+
 ## Developer
 
 Prof. Dr. Niyazi Acer (Retired, Erciyes University)
-
-Both runs confirm the Slicer extension and the CLI tool (`cisterna_core.py`)
-stay in sync, since they share the same code path.
