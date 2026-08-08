@@ -1,4 +1,4 @@
-# CisternaMagnaVolumetry (3D Slicer extension)
+# SlicerCisternaVolumetry (3D Slicer extension)
 
 A scripted module that computes cisterna magna, cisterna ambiens, and cisterna
 interpeduncularis volumes once you load a VolBrain segmentation output (T1 +
