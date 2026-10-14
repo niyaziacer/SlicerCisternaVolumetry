@@ -12,7 +12,7 @@ the CLI tool (see [`cisterna-magna-volumetry`](https://github.com/niyaziacer/cis
 just a separate copy. Both code bases were validated the same way on n=2 cases
 (Dice ~0.43-0.53, details in the CLI repo README).
 
-![Cisterna Magna Volumetry module output in 3D Slicer](figure.%20cisternas%20WhatsApp%20Image%202026-08-06%20at%2012.02.02.jpeg)
+![Cisterna Magna Volumetry module output in 3D Slicer](Screenshots/Screenshot1.jpeg)
 
 ## Installation (no build required)
 
