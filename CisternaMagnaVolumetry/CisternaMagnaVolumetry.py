@@ -9,7 +9,7 @@ Usage: first load the T1, native_tissues*.nii.gz, and native_structures*.nii.gz
 files into Slicer (drag and drop / Add Data). Then, in this module, pick the
 corresponding volumes from the three dropdowns and click "Calculate".
 
-The analysis logic lives in `cisterna_core.py` (vendored copy in this folder;
+The analysis logic lives in `CisternaMagnaVolumetryLib/cisterna_core.py` (vendored copy;
 the source of truth is `src/cisterna_core.py` in the CLI repo - keep both
 copies in sync). See the CLI repo README for method, limitations, and
 validation results.
@@ -198,7 +198,7 @@ class CisternaMagnaVolumetryLogic(ScriptedLoadableModuleLogic):
             sys.path.insert(0, moduleDir)
 
     def run(self, t1Node, tissuesNode, structuresNode):
-        from cisterna_core import run_cistern_analysis, CISTERN_COLORS
+        from CisternaMagnaVolumetryLib.cisterna_core import run_cistern_analysis, CISTERN_COLORS
 
         t1_array = slicer.util.arrayFromVolume(t1Node)
         tissues_array = slicer.util.arrayFromVolume(tissuesNode)
@@ -289,7 +289,7 @@ class CisternaMagnaVolumetryTest(ScriptedLoadableModuleTest):
         moduleDir = os.path.dirname(__file__)
         if moduleDir not in sys.path:
             sys.path.insert(0, moduleDir)
-        import cisterna_core  # noqa: F401
+        from CisternaMagnaVolumetryLib import cisterna_core  # noqa: F401
 
         self.assertTrue(hasattr(cisterna_core, "run_cistern_analysis"))
         self.delayDisplay("Test passed")

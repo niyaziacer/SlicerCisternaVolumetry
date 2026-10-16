@@ -7,7 +7,7 @@ colored/labeled segmentation to the scene, and shows a volume table.
 
 The analysis logic (ROI boxes, axis-orientation normalization, mm-based
 scaling, connected-component selection) lives in
-`CisternaMagnaVolumetry/cisterna_core.py` - this is the **same code path** as
+`CisternaMagnaVolumetry/CisternaMagnaVolumetryLib/cisterna_core.py` - this is the **same code path** as
 the CLI tool (see [`cisterna-magna-volumetry`](https://github.com/niyaziacer/cisterna-magna-volumetry)),
 just a separate copy. Both code bases were validated the same way on n=2 cases
 (Dice ~0.43-0.53, details in the CLI repo README).

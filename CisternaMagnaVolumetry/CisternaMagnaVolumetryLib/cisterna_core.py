@@ -4,7 +4,7 @@ This module is imported by both the CLI tool (`cisterna_analysis.py`) and the
 3D Slicer extension (`CisternaMagnaVolumetry`) - both interfaces use the SAME
 code path so results stay consistent. A copy of this file is vendored inside
 the Slicer extension (see
-`slicer_extension/CisternaMagnaVolumetry/CisternaMagnaVolumetry/cisterna_core.py`) -
+`CisternaMagnaVolumetry/CisternaMagnaVolumetryLib/cisterna_core.py`) -
 if you change the logic, update BOTH copies.
 
 Method summary:
