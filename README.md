@@ -36,6 +36,13 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
   quadrigeminal cistern behind the tectum is not included. The ambient cistern also
   extends 6 mm below the pontomesencephalic junction beside the upper pons (its
   infratentorial part, which contains the superior cerebellar artery).
+- **Cisterna quadrigeminalis** (cistern of the great cerebral vein). Midline CSF
+  behind the tectum: beside the midbrain within 12 mm of the midline and up to
+  15 mm behind its posterior surface (the superior cerebellar cistern further back is
+  not included); above the brainstem (pineal region, vein of Galen) within 7 mm of
+  the midline, up to 12 mm higher and 30 mm back, under the splenium. Laterally it
+  is continuous with the ambient cistern; the boundary is the lateral end of the
+  quadrigeminal plate.
 - **Cisterna magna.** CSF below the cerebellum (in each column, not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
   higher than 8 mm above the lower end of the 4th ventricle.
@@ -52,11 +59,13 @@ kept in the code as `make_cistern_masks_v1()`.
 | Case 1 (1 mm) | interpeduncularis | 0.80 cm³ | 6.18 cm³, Dice 0.17 | 1.25 cm³, Dice 0.51 |
 | Case 2 (7T, 0.7 mm) | magna | 5.30 cm³ | 8.05 cm³, Dice 0.43 | 3.58 cm³, Dice 0.60 |
 | Case 1 (1 mm) | ambiens (lateral part of the manual mask) | 2.81 cm³ | — | 3.32 cm³, Dice 0.66 |
+| Case 1 (1 mm) | quadrigeminalis (midline part of the manual mask) | 4.37 cm³ | — | 5.71 cm³, Dice 0.66 |
 
 In case 2, 37% of the manual cisterna magna lies outside VolBrain's brain mask
 (cropped at the foramen magnum) and only 55% of it is labelled CSF by VolBrain, so
 no method working on the VolBrain CSF mask can reach the rest; v2 recovers 91% of
-the reachable part. Two cases are not a validation
+the reachable part. The ambiens and quadrigeminalis limits were set on the same case they are
+scored on, so these two Dice values are optimistic. Two cases are not a validation
 study: treat the volumes as research measurements and check every result
 visually.
 

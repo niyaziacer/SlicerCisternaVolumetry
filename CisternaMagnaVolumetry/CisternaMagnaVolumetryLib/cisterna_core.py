@@ -49,12 +49,13 @@ VENTRICULAR_LABELS = (4, 11, 49, 50, 51, 52)
 # when saving.
 CANONICAL_AXCODES = ("P", "S", "R")
 
-CISTERN_LABEL_MAP = {"cisterna_magna": 1, "cisterna_ambiens": 2, "cisterna_interpeduncularis": 3, "cisterna_cruralis": 4}
+CISTERN_LABEL_MAP = {"cisterna_magna": 1, "cisterna_ambiens": 2, "cisterna_interpeduncularis": 3, "cisterna_cruralis": 4, "cisterna_quadrigeminalis": 5}
 CISTERN_COLORS = {
     "cisterna_magna": (0.85, 0.10, 0.10),
     "cisterna_ambiens": (0.95, 0.85, 0.10),
     "cisterna_interpeduncularis": (0.10, 0.75, 0.85),
     "cisterna_cruralis": (0.30, 0.80, 0.30),
+    "cisterna_quadrigeminalis": (0.75, 0.35, 0.85),
 }
 
 
@@ -268,6 +269,8 @@ def make_cistern_masks_v1(
 # --- v2 (landmark/surface-based) ------------------------------------------------
 IP_DOWN, IP_HALFW = 0, 8          # interpeduncular: mm below the junction, half-width (mm)
 AMB_DOWN = 6                      # ambiens: mm below the pontomesencephalic junction (infratentorial part)
+QUAD_UP, QUAD_DEPTH, QUAD_HALFW = 12, 15, 12   # quadrigeminal cistern beside the tectum (mm)
+QUAD_DEPTH_UP, QUAD_HALFW_UP = 30, 7             # above the brainstem (pineal region, vein of Galen)
 CRURAL_FRAC = 0.4                 # anterior fraction of the midbrain A-P extent taken as the cerebral peduncle
 MESIAL_TEMPORAL = (31, 32, 47, 48, 116, 117, 170, 171)   # amygdala, hippocampus, entorhinal area, parahippocampal gyrus
 BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
@@ -349,6 +352,29 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     cand_a = lat & (P >= split) & (P <= Pe)
     crur = _largest_touching(cand_c, cand_c & (d_mb <= 2))
     amb = _largest_touching(cand_a, cand_a & (d_mb <= 2))
+    # --- quadrigeminal cistern (cisterna venae magnae cerebri): midline CSF behind the tectum, from the lowest
+    # midbrain slice up to QUAD_UP mm above the top of the brainstem (pineal region, below the splenium), at most
+    # QUAD_DEPTH mm behind the posterior surface of the midbrain and within QUAD_HALFW mm of the midline.
+    # Laterally it is continuous with the ambient cistern; voxels already in the ambient cistern stay there.
+    post = np.full(sh[1], np.nan)
+    for S in range(sh[1]):
+        r = np.argwhere(bs[:, S, :])
+        if len(r): post[S] = r[:, 0].max()
+    last = post[top]
+    post = np.where(np.isnan(post), last, post)
+    Qp = post[None, :, None] * np.ones(sh)
+    S_ = np.arange(sh[1])[None, :, None] * np.ones(sh)
+    # beside the tectum the cistern is wide and shallow (it continues into the superior cerebellar cistern
+    # further back, which is not included); above the brainstem (pineal region, vein of Galen) it is narrow and
+    # runs back under the splenium
+    upper = S_ > top
+    halfw = np.where(upper, QUAD_HALFW_UP, QUAD_HALFW)
+    front = np.where(upper, Qp + 4 / v0, Qp - 2 / v0)
+    depth = np.where(upper, QUAD_DEPTH_UP, QUAD_DEPTH)
+    cand_q = ext & ~amb & ~crur & (S_ >= s_mid) & (S_ <= top + round(QUAD_UP / v1)) & (np.abs(X) <= halfw) \
+        & (P >= front) & (P <= Qp + depth / v0)
+    seed_q = cand_q & (np.abs(X) <= 3) & (P <= Qp + 6 / v0) & (S_ <= top)
+    quad = _largest_touching(cand_q, seed_q)
     # --- magna: CSF below the cerebellum and behind the medulla
     cbl = np.isin(st, CBL + VERMIS)
     any_c = cbl.any(axis=1); low_c = np.where(any_c, cbl.argmax(axis=1), sh[1])        # lowest cerebellar S per (P,R) column
@@ -365,8 +391,9 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     seed_m = cand_m & (np.abs(X) <= 4)
     mag = _largest_touching(cand_m, seed_m)
     if info is not None: info.update(pmj=int(pmj), top=int(top), mid=mid, v4_low=int(v4_low))
-    return {"cisterna_magna": mag & ~inter & ~amb & ~crur, "cisterna_ambiens": amb & ~inter,
-            "cisterna_cruralis": crur & ~inter & ~amb, "cisterna_interpeduncularis": inter}
+    return {"cisterna_magna": mag & ~inter & ~amb & ~crur & ~quad, "cisterna_ambiens": amb & ~inter,
+            "cisterna_cruralis": crur & ~inter & ~amb, "cisterna_interpeduncularis": inter,
+            "cisterna_quadrigeminalis": quad & ~amb & ~inter}
 
 
 def volume_from_mask(mask: np.ndarray, voxel_volume_mm3: float) -> Dict[str, float]:

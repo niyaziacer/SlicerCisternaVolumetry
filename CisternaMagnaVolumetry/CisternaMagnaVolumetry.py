@@ -45,8 +45,9 @@ DISPLAY_NAMES = {
     "cisterna_ambiens": "Cisterna ambiens",
     "cisterna_interpeduncularis": "Cisterna interpeduncularis",
     "cisterna_cruralis": "Cisterna cruralis",
+    "cisterna_quadrigeminalis": "Cisterna quadrigeminalis",
 }
-CISTERN_ORDER = ["cisterna_magna", "cisterna_interpeduncularis", "cisterna_cruralis", "cisterna_ambiens"]
+CISTERN_ORDER = ["cisterna_magna", "cisterna_interpeduncularis", "cisterna_cruralis", "cisterna_ambiens", "cisterna_quadrigeminalis"]
 
 
 class CisternaMagnaVolumetry(ScriptedLoadableModule):
