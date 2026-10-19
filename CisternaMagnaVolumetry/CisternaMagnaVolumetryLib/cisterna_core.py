@@ -49,11 +49,12 @@ VENTRICULAR_LABELS = (4, 11, 49, 50, 51, 52)
 # when saving.
 CANONICAL_AXCODES = ("P", "S", "R")
 
-CISTERN_LABEL_MAP = {"cisterna_magna": 1, "cisterna_ambiens": 2, "cisterna_interpeduncularis": 3}
+CISTERN_LABEL_MAP = {"cisterna_magna": 1, "cisterna_ambiens": 2, "cisterna_interpeduncularis": 3, "cisterna_cruralis": 4}
 CISTERN_COLORS = {
     "cisterna_magna": (0.85, 0.10, 0.10),
     "cisterna_ambiens": (0.95, 0.85, 0.10),
     "cisterna_interpeduncularis": (0.10, 0.75, 0.85),
+    "cisterna_cruralis": (0.30, 0.80, 0.30),
 }
 
 
@@ -266,6 +267,8 @@ def make_cistern_masks_v1(
 
 # --- v2 (landmark/surface-based) ------------------------------------------------
 IP_DOWN, IP_HALFW = 0, 8          # interpeduncular: mm below the junction, half-width (mm)
+CRURAL_FRAC = 0.4                 # anterior fraction of the midbrain A-P extent taken as the cerebral peduncle
+MESIAL_TEMPORAL = (31, 32, 47, 48, 116, 117, 170, 171)   # amygdala, hippocampus, entorhinal area, parahippocampal gyrus
 BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
 
 def _largest_touching(cand, touch):
@@ -319,8 +322,26 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     a_lim = ant[pmj] - 8 / v0
     cand_i = ext & (S_ >= pmj - round(IP_DOWN / v1)) & (S_ <= s_hi) & (np.abs(X) <= IP_HALFW) & (P >= a_lim) & (P <= a_mid + 1)
     inter = _largest_touching(cand_i, cand_i & (np.abs(X) <= 3))
-    # --- ambiens: lateral CSF hugging the midbrain, from the peduncle front to the back of the tectum
-    cand_a = ext & slab & ~inter & (np.abs(X) >= 5) & (np.abs(X) <= 22) & (d_mb <= 8) & (P >= A + 2 / v0) & (P <= Pe + 4 / v0)
+    # --- lateral cisterns (crural + ambiens): CSF between the midbrain and the mesial temporal lobe
+    # (uncus, parahippocampal gyrus, hippocampus/fimbria). A voxel belongs here if it is within 8 mm of the
+    # midbrain and not clearly on the temporal side of the gap (d_mb <= d_temporal + 3 mm).
+    tl = np.isin(st, MESIAL_TEMPORAL) & slab
+    d_t = np.full(sh, 1e9)
+    for S in range(s_lo, s_hi + 1):
+        if tl[:, S, :].any():
+            d_t[:, S, :] = ndi.distance_transform_edt(~tl[:, S, :], sampling=(v0, v2))
+    lat = ext & slab & ~inter & (np.abs(X) >= 5) & (d_mb <= 8) & (d_mb <= d_t + 3)
+    # A-P division (Rhoton): crural cistern lies beside the cerebral peduncle (P2A segment of the PCA), the ambient
+    # cistern beside the rest of the midbrain up to the lateral end of the quadrigeminal plate (P2P); behind that
+    # is the quadrigeminal cistern, which is not included. The peduncle is approximated as the anterior
+    # CRURAL_FRAC of the midbrain's A-P extent in each slice.
+    # In the upper slices the ventral DC (hypothalamus) reaches far forward; do not let it pull the anterior edge
+    # of the "midbrain" more than 13 mm in front of the brainstem's own anterior surface.
+    A2 = np.fmax(A, Ba - 13 / v0)
+    split = A2 + CRURAL_FRAC * (Pe - A2)
+    cand_c = lat & (P >= A2 - 5 / v0) & (P < split)
+    cand_a = lat & (P >= split) & (P <= Pe)
+    crur = _largest_touching(cand_c, cand_c & (d_mb <= 2))
     amb = _largest_touching(cand_a, cand_a & (d_mb <= 2))
     # --- magna: CSF below the cerebellum and behind the medulla
     cbl = np.isin(st, CBL + VERMIS)
@@ -338,7 +359,8 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     seed_m = cand_m & (np.abs(X) <= 4)
     mag = _largest_touching(cand_m, seed_m)
     if info is not None: info.update(pmj=int(pmj), top=int(top), mid=mid, v4_low=int(v4_low))
-    return {"cisterna_magna": mag & ~inter & ~amb, "cisterna_ambiens": amb & ~inter, "cisterna_interpeduncularis": inter}
+    return {"cisterna_magna": mag & ~inter & ~amb & ~crur, "cisterna_ambiens": amb & ~inter,
+            "cisterna_cruralis": crur & ~inter & ~amb, "cisterna_interpeduncularis": inter}
 
 
 def volume_from_mask(mask: np.ndarray, voxel_volume_mm3: float) -> Dict[str, float]:

@@ -26,15 +26,21 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
   floor, from the junction up to the top of the brainstem, and not more than 8 mm
   in front of the upper pons. This leaves out the prepontine cistern (below) and
   the suprasellar cistern (in front).
-- **Cisterna ambiens.** CSF lateral to the midbrain (5–22 mm from the midline),
-  within 8 mm of the midbrain surface (brainstem + ventral diencephalon), from the
-  front of the cerebral peduncle to 4 mm behind the tectum.
+- **Cisterna cruralis** and **cisterna ambiens** (reported separately). Both are
+  the CSF between the midbrain and the mesial temporal lobe (amygdala, hippocampus,
+  entorhinal area, parahippocampal gyrus): within 8 mm of the midbrain surface and
+  not on the temporal side of the gap. Following Rhoton's division of the posterior
+  cerebral artery, the anterior 40% of the midbrain's antero-posterior extent (the
+  cerebral peduncle, P2A segment) is the crural cistern and the rest, up to the
+  lateral end of the quadrigeminal plate (P2P segment), is the ambient cistern. The
+  quadrigeminal cistern behind the tectum is not included.
 - **Cisterna magna.** CSF below the cerebellum (in each column, not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
   higher than 8 mm above the lower end of the 4th ventricle.
 
 Landmarks use the vol2Brain (Neuromorphometrics) labels: brainstem 35, 4th
-ventricle 11, ventral DC 61/62, cerebellum 38–41, vermis 71–73. The old method is
+ventricle 11, ventral DC 61/62, cerebellum 38–41, vermis 71–73, amygdala 31/32,
+hippocampus 47/48, entorhinal area 116/117, parahippocampal gyrus 170/171. The old method is
 kept in the code as `make_cistern_masks_v1()`.
 
 ### Validation against manual masks
