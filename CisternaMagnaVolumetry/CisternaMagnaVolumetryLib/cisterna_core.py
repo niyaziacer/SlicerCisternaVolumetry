@@ -267,6 +267,7 @@ def make_cistern_masks_v1(
 
 # --- v2 (landmark/surface-based) ------------------------------------------------
 IP_DOWN, IP_HALFW = 0, 8          # interpeduncular: mm below the junction, half-width (mm)
+AMB_DOWN = 6                      # ambiens: mm below the pontomesencephalic junction (infratentorial part)
 CRURAL_FRAC = 0.4                 # anterior fraction of the midbrain A-P extent taken as the cerebral peduncle
 MESIAL_TEMPORAL = (31, 32, 47, 48, 116, 117, 170, 171)   # amygdala, hippocampus, entorhinal area, parahippocampal gyrus
 BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
@@ -298,7 +299,11 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     a_mid = np.median([ant[S] for S in Ss if S > top - round(10 / v1)])
     pons = [S for S in Ss if ant[S] <= a_mid - 6 / v0]
     pmj = max(pons) if pons else top - round(18 / v1)
-    s_lo, s_hi = pmj + 1, top + round(3 / v1)
+    s_hi = top + round(3 / v1)
+    s_mid = pmj + 1                                   # lowest midbrain slice
+    # the ambient cistern also extends below the tentorium (lower part, superior cerebellar artery) beside the
+    # upper pons: the lateral slab starts AMB_DOWN mm below the junction
+    s_lo = pmj + 1 - round(AMB_DOWN / v1)
     slab = np.zeros(sh, bool); slab[:, s_lo:s_hi + 1, :] = True
     # in-plane distance (mm) to the midbrain (brainstem ∪ ventral DC) within the slab
     mb = mb_like & slab
@@ -339,7 +344,8 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     # of the "midbrain" more than 13 mm in front of the brainstem's own anterior surface.
     A2 = np.fmax(A, Ba - 13 / v0)
     split = A2 + CRURAL_FRAC * (Pe - A2)
-    cand_c = lat & (P >= A2 - 5 / v0) & (P < split)
+    cand_c = lat & (P >= A2 - 5 / v0) & (P < split) & (S_ >= s_mid)
+    split = np.where(S_ >= s_mid, split, -np.inf)      # below the midbrain everything lateral is ambiens
     cand_a = lat & (P >= split) & (P <= Pe)
     crur = _largest_touching(cand_c, cand_c & (d_mb <= 2))
     amb = _largest_touching(cand_a, cand_a & (d_mb <= 2))

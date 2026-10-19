@@ -33,7 +33,9 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
   cerebral artery, the anterior 40% of the midbrain's antero-posterior extent (the
   cerebral peduncle, P2A segment) is the crural cistern and the rest, up to the
   lateral end of the quadrigeminal plate (P2P segment), is the ambient cistern. The
-  quadrigeminal cistern behind the tectum is not included.
+  quadrigeminal cistern behind the tectum is not included. The ambient cistern also
+  extends 6 mm below the pontomesencephalic junction beside the upper pons (its
+  infratentorial part, which contains the superior cerebellar artery).
 - **Cisterna magna.** CSF below the cerebellum (in each column, not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
   higher than 8 mm above the lower end of the 4th ventricle.
@@ -49,6 +51,7 @@ kept in the code as `make_cistern_masks_v1()`.
 |---|---|---|---|---|
 | Case 1 (1 mm) | interpeduncularis | 0.80 cm³ | 6.18 cm³, Dice 0.17 | 1.25 cm³, Dice 0.51 |
 | Case 2 (7T, 0.7 mm) | magna | 5.30 cm³ | 8.05 cm³, Dice 0.43 | 3.58 cm³, Dice 0.60 |
+| Case 1 (1 mm) | ambiens (lateral part of the manual mask) | 2.81 cm³ | — | 3.32 cm³, Dice 0.66 |
 
 In case 2, 37% of the manual cisterna magna lies outside VolBrain's brain mask
 (cropped at the foramen magnum) and only 55% of it is labelled CSF by VolBrain, so
