@@ -7,11 +7,19 @@ the Slicer extension (see
 `CisternaMagnaVolumetry/CisternaMagnaVolumetryLib/cisterna_core.py`) -
 if you change the logic, update BOTH copies.
 
-Method summary:
+Method summary (v2, October 2026):
 - CSF mask source: native_tissues (label=1) minus ventricular labels -> "external CSF"
-- Anatomical landmarks: native_structures (4th ventricle=11, brainstem=35)
-- Cistern extraction: mm-based ROI boxes + morphological filtering + connected
-  component selection
+- Anatomical landmarks from native_structures (vol2Brain / Neuromorphometrics labels):
+  brainstem=35, 4th ventricle=11, ventral DC=61/62, cerebellum=38-41, vermis=71-73
+- The midbrain level is found from the brainstem itself: the pontomesencephalic
+  junction is the highest slice where the anterior brainstem edge jumps forward
+  (the pons). Cisterns are then defined relative to the midbrain surface:
+  interpeduncular = midline CSF in front of the midbrain floor (not below the
+  junction, so the prepontine cistern is excluded; not more than 8 mm in front of
+  the upper pons, so the suprasellar cistern is excluded); ambiens = lateral CSF
+  within 8 mm of the midbrain surface at midbrain level; magna = CSF below the
+  cerebellum and behind the medulla, near the midline.
+- The previous box-based method is kept as make_cistern_masks_v1() for comparison.
 - VolBrain's atlas has NO cistern-level labels (see repo README) - this is why a
   landmark-based heuristic is used instead of an atlas shortcut.
 """
@@ -132,7 +140,7 @@ def clean_mask(mask: np.ndarray, open_iter: int = 1, close_iter: int = 1) -> np.
     return m
 
 
-def make_cistern_masks(
+def make_cistern_masks_v1(
     external_csf: np.ndarray,
     struct_data: np.ndarray,
     voxel_sizes: Tuple[float, float, float] = (1.0, 1.0, 1.0),
@@ -253,6 +261,84 @@ def make_cistern_masks(
     masks["cisterna_magna"] = mag
 
     return masks
+
+
+
+# --- v2 (landmark/surface-based) ------------------------------------------------
+IP_DOWN, IP_HALFW = 0, 8          # interpeduncular: mm below the junction, half-width (mm)
+BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
+
+def _largest_touching(cand, touch):
+    lab, n = ndi.label(cand, np.ones((3,3,3), bool))
+    if n == 0: return np.zeros_like(cand)
+    ids = np.unique(lab[touch & cand]); ids = ids[ids > 0]
+    if len(ids) == 0: return np.zeros_like(cand)
+    sizes = ndi.sum(cand, lab, ids)
+    keep = ids[sizes >= max(20, 0.05 * sizes.max())]
+    return np.isin(lab, keep)
+
+def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
+    """Landmark/surface-based cistern masks (v2). ext and st must be in CANONICAL_AXCODES order (P, S, R);
+    vs are voxel sizes in that order (mm)."""
+    v0, v1, v2 = vs; sh = ext.shape
+    bs = st == BS; mb_like = bs | np.isin(st, VDC)
+    if not bs.any():
+        raise ValueError("Landmark not found: brainstem (label 35)")
+    if not (st == V4).any():
+        raise ValueError("Landmark not found: 4th_ventricle (label 11)")
+    # midline: brainstem centre (L-R) in its upper half - more central than the 4th ventricle in tilted heads
+    q = np.argwhere(bs); q = q[q[:, 1] >= np.median(q[:, 1])]
+    mid = int(round(q[:, 2].mean()))
+    # --- pontomesencephalic junction: anterior edge of the brainstem jumps forward at the pons
+    Ss = np.where(bs.any(axis=(0, 2)))[0]; top = Ss.max()
+    ant = {S: np.argwhere(bs[:, S, :])[:, 0].min() for S in Ss}
+    a_mid = np.median([ant[S] for S in Ss if S > top - round(10 / v1)])
+    pons = [S for S in Ss if ant[S] <= a_mid - 6 / v0]
+    pmj = max(pons) if pons else top - round(18 / v1)
+    s_lo, s_hi = pmj + 1, top + round(3 / v1)
+    slab = np.zeros(sh, bool); slab[:, s_lo:s_hi + 1, :] = True
+    # in-plane distance (mm) to the midbrain (brainstem ∪ ventral DC) within the slab
+    mb = mb_like & slab
+    d_mb = np.full(sh, 1e9)
+    for S in range(s_lo, s_hi + 1):
+        if mb[:, S, :].any():
+            d_mb[:, S, :] = ndi.distance_transform_edt(~mb[:, S, :], sampling=(v0, v2))
+    P = np.arange(sh[0])[:, None, None] * np.ones(sh); X = (np.arange(sh[2])[None, None, :] - mid) * v2 * np.ones(sh)
+    # anterior / posterior edges of the midbrain per slice (mm in P index units)
+    a_edge = np.full(sh[1], np.nan); p_edge = np.full(sh[1], np.nan); b_ant = np.full(sh[1], np.nan)
+    for S in range(s_lo, s_hi + 1):
+        q = np.argwhere(mb[:, S, :])
+        if len(q): a_edge[S], p_edge[S] = q[:, 0].min(), q[:, 0].max()
+        r = np.argwhere(bs[:, S, :])
+        if len(r): b_ant[S] = r[:, 0].min()
+    A = a_edge[None, :, None] * np.ones(sh); Pe = p_edge[None, :, None] * np.ones(sh); Ba = b_ant[None, :, None] * np.ones(sh)
+    # --- interpeduncular: midline CSF in front of the brainstem floor, between the peduncles, up to 5 mm in front of them
+    # S range: from 3 mm below the pontomesencephalic junction (pontomesencephalic sulcus) to the top of the brainstem;
+    # P range: from 8 mm in front of the pons' upper anterior surface back to the fossa floor (midbrain anterior surface)
+    S_ = np.arange(sh[1])[None, :, None] * np.ones(sh)
+    a_lim = ant[pmj] - 8 / v0
+    cand_i = ext & (S_ >= pmj - round(IP_DOWN / v1)) & (S_ <= s_hi) & (np.abs(X) <= IP_HALFW) & (P >= a_lim) & (P <= a_mid + 1)
+    inter = _largest_touching(cand_i, cand_i & (np.abs(X) <= 3))
+    # --- ambiens: lateral CSF hugging the midbrain, from the peduncle front to the back of the tectum
+    cand_a = ext & slab & ~inter & (np.abs(X) >= 5) & (np.abs(X) <= 22) & (d_mb <= 8) & (P >= A + 2 / v0) & (P <= Pe + 4 / v0)
+    amb = _largest_touching(cand_a, cand_a & (d_mb <= 2))
+    # --- magna: CSF below the cerebellum and behind the medulla
+    cbl = np.isin(st, CBL + VERMIS)
+    any_c = cbl.any(axis=1); low_c = np.where(any_c, cbl.argmax(axis=1), sh[1])        # lowest cerebellar S per (P,R) column
+    below_c = np.arange(sh[1])[None, :, None] <= (low_c[:, None, :] + 1)
+    v4 = np.argwhere(st == V4); v4_low = v4[:, 1].min()
+    bs_post = np.full(sh[1], np.nan)
+    for S in range(sh[1]):
+        r = np.argwhere(bs[:, S, :])
+        if len(r): bs_post[S] = r[:, 0].max()
+    bs_post = np.where(np.isnan(bs_post), np.nanmax(bs_post), bs_post)
+    Bp = bs_post[None, :, None] * np.ones(sh)
+    S_ = np.arange(sh[1])[None, :, None] * np.ones(sh)
+    cand_m = ext & below_c & (P >= Bp - 2 / v0) & (np.abs(X) <= 15) & (S_ <= v4_low + 8 / v1)
+    seed_m = cand_m & (np.abs(X) <= 4)
+    mag = _largest_touching(cand_m, seed_m)
+    if info is not None: info.update(pmj=int(pmj), top=int(top), mid=mid, v4_low=int(v4_low))
+    return {"cisterna_magna": mag & ~inter & ~amb, "cisterna_ambiens": amb & ~inter, "cisterna_interpeduncularis": inter}
 
 
 def volume_from_mask(mask: np.ndarray, voxel_volume_mm3: float) -> Dict[str, float]:

@@ -9,8 +9,47 @@ The analysis logic (ROI boxes, axis-orientation normalization, mm-based
 scaling, connected-component selection) lives in
 `CisternaMagnaVolumetry/CisternaMagnaVolumetryLib/cisterna_core.py` - this is the **same code path** as
 the CLI tool (see [`cisterna-magna-volumetry`](https://github.com/niyaziacer/cisterna-magna-volumetry)),
-just a separate copy. Both code bases were validated the same way on n=2 cases
-(Dice ~0.43-0.53, details in the CLI repo README).
+just a separate copy.
+
+## Method (v2, October 2026)
+
+The first version cut the cisterns out of the CSF mask with fixed boxes placed
+around the 4th ventricle and the brainstem. On real data the interpeduncular box
+also took in the suprasellar and prepontine cisterns (6.2 cm³ instead of about
+0.8 cm³ in the manual mask), and the ambiens box reached down to the pons. Version 2
+defines the cisterns relative to the midbrain and cerebellum surfaces:
+
+- **Midbrain level.** The pontomesencephalic junction is found from the brainstem
+  label itself: it is the highest slice where the anterior edge of the brainstem
+  jumps forward (the pons).
+- **Cisterna interpeduncularis.** Midline CSF (±8 mm) in front of the midbrain
+  floor, from the junction up to the top of the brainstem, and not more than 8 mm
+  in front of the upper pons. This leaves out the prepontine cistern (below) and
+  the suprasellar cistern (in front).
+- **Cisterna ambiens.** CSF lateral to the midbrain (5–22 mm from the midline),
+  within 8 mm of the midbrain surface (brainstem + ventral diencephalon), from the
+  front of the cerebral peduncle to 4 mm behind the tectum.
+- **Cisterna magna.** CSF below the cerebellum (in each column, not above the
+  lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
+  higher than 8 mm above the lower end of the 4th ventricle.
+
+Landmarks use the vol2Brain (Neuromorphometrics) labels: brainstem 35, 4th
+ventricle 11, ventral DC 61/62, cerebellum 38–41, vermis 71–73. The old method is
+kept in the code as `make_cistern_masks_v1()`.
+
+### Validation against manual masks
+
+| Case | Cistern | Manual | v1 (boxes) | v2 |
+|---|---|---|---|---|
+| Case 1 (1 mm) | interpeduncularis | 0.80 cm³ | 6.18 cm³, Dice 0.17 | 1.25 cm³, Dice 0.51 |
+| Case 2 (7T, 0.7 mm) | magna | 5.30 cm³ | 8.05 cm³, Dice 0.43 | 3.58 cm³, Dice 0.60 |
+
+In case 2, 37% of the manual cisterna magna lies outside VolBrain's brain mask
+(cropped at the foramen magnum) and only 55% of it is labelled CSF by VolBrain, so
+no method working on the VolBrain CSF mask can reach the rest; v2 recovers 91% of
+the reachable part. Two cases are not a validation
+study: treat the volumes as research measurements and check every result
+visually.
 
 ![Cisterna Magna Volumetry module output in 3D Slicer](Screenshots/Screenshot1.jpeg)
 
@@ -104,7 +143,8 @@ cases:
   CLI output on the same data.
 
 Both runs confirm the Slicer extension and the CLI tool (`cisterna_core.py`)
-stay in sync, since they share the same code path.
+stayed in sync. These numbers were produced with method v1; the CLI repo has not
+been updated to v2 yet.
 
 ## License
 

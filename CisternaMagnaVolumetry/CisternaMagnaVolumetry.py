@@ -58,8 +58,9 @@ class CisternaMagnaVolumetry(ScriptedLoadableModule):
         self.parent.helpText = (
             "Computes cisterna magna, cisterna ambiens, and cisterna interpeduncularis "
             "volumes from VolBrain native_tissues/native_structures output. The method is "
-            "heuristic (VolBrain's atlas has no cistern-level labels), validated on n=2 "
-            "cases (Dice ~0.43-0.53). See the CLI repo README for details."
+            "landmark-based (VolBrain's atlas has no cistern-level labels): the cisterns are "
+            "defined relative to the midbrain and cerebellum surfaces (method v2, Oct 2026). "
+            "See the README for the validation."
         )
         self.parent.acknowledgementText = ""
 
@@ -113,10 +114,11 @@ class CisternaMagnaVolumetryWidget(ScriptedLoadableModuleWidget, VTKObservationM
         resultsLayout.addWidget(self.resultsTable)
 
         noteLabel = qt.QLabel(
-            "Note: this is a heuristic method - VolBrain's atlas has no cistern-level "
-            "labels. Validated on n=2 cases (Dice ~0.43-0.53). Main limitation: VolBrain's "
-            "brain mask crops the image at the level of the foramen magnum. See the CLI "
-            "repo README for details."
+            "Note: landmark-based method (v2) - VolBrain's atlas has no cistern-level "
+            "labels. Compared with manual masks on 2 cases: interpeduncular Dice 0.51, "
+            "cisterna magna Dice 0.60. Main limitation: VolBrain's brain mask crops the "
+            "image at the level of the foramen magnum, so part of the cisterna magna is "
+            "never in the CSF mask. Check every result visually."
         )
         noteLabel.setWordWrap(True)
         noteLabel.setStyleSheet("color: gray; font-size: 11px;")
