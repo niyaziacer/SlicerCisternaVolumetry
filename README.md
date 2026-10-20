@@ -56,7 +56,15 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
 - **Cisterna magna.** CSF below the cerebellum (only in columns that have cerebellum above them, so
   the retrocerebellar CSF behind the hemispheres is excluded; in each column not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
-  higher than 8 mm above the lower end of the 4th ventricle.
+  higher than 8 mm above the lower end of the 4th ventricle. The lateral
+  cerebellomedullary cisterns, which some authors count as the lateral part of the
+  cisterna magna, are not included. The lower limit is the lower edge of the
+  segmentation. In SynthSeg this edge lies at the level of the foramen magnum (from the
+  lower end of the occipital squama to the tip of the clivus; checked by eye on the
+  midsagittal slice of 20 scans from one scanner, to within a few millimetres), so the
+  spinal CSF behind the cord is not counted. Check this on data from other scanners.
+  With tonsillar herniation (Chiari I) the cistern is effaced and the cisterna magna
+  volume is small; this is the expected result, not an error.
 
 Landmarks use the vol2Brain (Neuromorphometrics) labels: brainstem 35, 4th
 ventricle 11, ventral DC 61/62, cerebellum 38–41, vermis 71–73, amygdala 31/32,
