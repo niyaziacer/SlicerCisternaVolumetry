@@ -267,6 +267,7 @@ def make_cistern_masks_v1(
 
 
 # --- v2 (landmark/surface-based) ------------------------------------------------
+IP_FRONT = 3                      # interpeduncular: mm in front of the peduncle tips
 IP_DOWN, IP_HALFW = 0, 8          # interpeduncular: mm below the junction, half-width (mm)
 AMB_DOWN = 6                      # ambiens: mm below the pontomesencephalic junction (infratentorial part)
 QUAD_UP, QUAD_DEPTH, QUAD_HALFW = 12, 15, 12   # quadrigeminal cistern beside the tectum (mm)
@@ -337,7 +338,20 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None, lab=None):
     # P range: from 8 mm in front of the pons' upper anterior surface back to the fossa floor (midbrain anterior surface)
     S_ = np.arange(sh[1])[None, :, None] * np.ones(sh)
     a_lim = ant[pmj] - 8 / v0
-    cand_i = ext & (S_ >= pmj - round(IP_DOWN / v1)) & (S_ <= s_hi) & (np.abs(X) <= IP_HALFW) & (P >= a_lim) & (P <= a_mid + 1)
+    # The fossa lies between the cerebral peduncles: in each slice, do not go more than IP_FRONT mm in front of
+    # the line joining the anterior tips of the two peduncles (keeps the suprasellar cistern out).
+    ped_front = np.full(sh[1], -np.inf)
+    for S in range(max(0, pmj - round(IP_DOWN / v1)), min(sh[1], s_hi + 1)):
+        tips = []
+        for side in (-1, 1):
+            cols = np.where((side * (np.arange(sh[2]) - mid) * v2 >= 3) & (side * (np.arange(sh[2]) - mid) * v2 <= 15))[0]
+            q = np.argwhere(mb_like[:, S, cols])
+            if len(q): tips.append(q[:, 0].min())
+        if len(tips) == 2:
+            ped_front[S] = np.mean(tips) - IP_FRONT / v0
+    Pf = ped_front[None, :, None] * np.ones(sh)
+    cand_i = ext & (S_ >= pmj - round(IP_DOWN / v1)) & (S_ <= s_hi) & (np.abs(X) <= IP_HALFW) & (P >= a_lim) \
+        & (P >= Pf) & (P <= a_mid + 1)
     inter = _largest_touching(cand_i, cand_i & (np.abs(X) <= 3))
     # --- lateral cisterns (crural + ambiens): CSF between the midbrain and the mesial temporal lobe
     # (uncus, parahippocampal gyrus, hippocampus/fimbria). A voxel belongs here if it is within 8 mm of the
@@ -473,15 +487,32 @@ def run_cistern_analysis(
     return cistern_masks, external_csf, volumes, total_csf
 
 
-def run_cistern_analysis_synthseg(seg_data: np.ndarray, affine: np.ndarray, voxel_sizes: Tuple[float, float, float]):
+def refine_csf_with_t1(csf, seg, t1, labels=(16, 28, 60), shell_mm=3.0, voxel_sizes=(1.0, 1.0, 1.0)):
+    """SynthSeg sometimes labels the CSF of the interpeduncular fossa and the thin perimesencephalic CSF as
+    ventral DC / brainstem. Voxels in the outer shell_mm of those labels that are as dark as CSF on T1
+    (below the midpoint between the CSF and the ventral DC median intensities) are added to the CSF mask."""
+    mb = np.isin(seg, labels)
+    if not mb.any() or not csf.any():
+        return csf
+    t1 = t1.astype(np.float32)
+    thr = 0.5 * (np.median(t1[csf & (ndi.binary_dilation(mb, iterations=4))]) + np.median(t1[mb]))
+    core = ndi.distance_transform_edt(mb, sampling=voxel_sizes) > shell_mm
+    return csf | (mb & ~core & (t1 < thr))
+
+
+def run_cistern_analysis_synthseg(seg_data: np.ndarray, affine: np.ndarray, voxel_sizes: Tuple[float, float, float],
+                                  t1_data: np.ndarray = None):
     """Same analysis on a single SynthSeg label map (run with --parc). The extra-ventricular CSF is SynthSeg
     label 24; ventricles are reported separately. Returns (cistern_masks, external_csf, volumes, extra), where
-    extra holds ventricle and total CSF volumes (mm3)."""
+    extra holds ventricle and total CSF volumes (mm3). If the T1 (same grid) is given, CSF that SynthSeg
+    assigned to the midbrain surface is recovered from the T1 intensity (refine_csf_with_t1)."""
     L = LABELS_SYNTHSEG
     reorient = Reorientation(affine)
     seg_c = reorient.to_canon(seg_data.astype(np.int32))
     vs_c = reorient.canonical_voxel_sizes(voxel_sizes)
     ext_c = np.isin(seg_c, L["csf"])
+    if t1_data is not None:
+        ext_c = refine_csf_with_t1(ext_c, seg_c, reorient.to_canon(np.asarray(t1_data)), voxel_sizes=vs_c)
     masks_c = make_cistern_masks(ext_c, seg_c, vs_c, lab=L)
     masks = {k: reorient.from_canon(m.astype(np.int16)).astype(bool) for k, m in masks_c.items()}
     vv = float(np.prod(voxel_sizes))

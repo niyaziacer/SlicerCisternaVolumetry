@@ -1,9 +1,18 @@
 # SlicerCisternaVolumetry (3D Slicer extension)
 
-A scripted module that computes cisterna magna, cisterna ambiens, and cisterna
-interpeduncularis volumes once you load a VolBrain segmentation output (T1 +
-`native_tissues` + `native_structures`) into Slicer, adds the result as a
-colored/labeled segmentation to the scene, and shows a volume table.
+A scripted module that computes the volumes of five basal cisterns (magna,
+interpeduncularis, cruralis, ambiens, quadrigeminalis) from a T1 scan and one of
+two segmentations:
+
+- **VolBrain / vol2Brain** output: `native_tissues` + `native_structures`, or
+- **SynthSeg 2.0 with cortical parcellation**: made with the
+  [SlicerSynthSeg](https://github.com/niyaziacer/SlicerSynthSeg) module, with
+  FreeSurfer (`mri_synthseg --i T1.nii.gz --o seg.nii.gz --parc`), or on turkbrain.net.
+  With SynthSeg the table also lists the lateral, 3rd and 4th ventricles, the total
+  extra-ventricular CSF and the intracranial volume.
+
+The result is added to the scene as a colored/labeled segmentation and listed in a
+volume table.
 
 The analysis logic (ROI boxes, axis-orientation normalization, mm-based
 scaling, connected-component selection) lives in
@@ -24,7 +33,8 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
   jumps forward (the pons).
 - **Cisterna interpeduncularis.** Midline CSF (±8 mm) in front of the midbrain
   floor, from the junction up to the top of the brainstem, and not more than 8 mm
-  in front of the upper pons. This leaves out the prepontine cistern (below) and
+  in front of the upper pons, and not more than 3 mm in front of the anterior tips of
+  the two cerebral peduncles. This leaves out the prepontine cistern (below) and
   the suprasellar cistern (in front).
 - **Cisterna cruralis** and **cisterna ambiens** (reported separately). Both are
   the CSF between the midbrain and the mesial temporal lobe (amygdala, hippocampus,
@@ -49,14 +59,19 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
 
 Landmarks use the vol2Brain (Neuromorphometrics) labels: brainstem 35, 4th
 ventricle 11, ventral DC 61/62, cerebellum 38–41, vermis 71–73, amygdala 31/32,
-hippocampus 47/48, entorhinal area 116/117, parahippocampal gyrus 170/171. The old method is
-kept in the code as `make_cistern_masks_v1()`.
+hippocampus 47/48, entorhinal area 116/117, parahippocampal gyrus 170/171. With SynthSeg the
+same landmarks come from the FreeSurfer labels (brainstem 16, 4th ventricle 15, ventral DC
+28/60, cerebellum 7/8/46/47, hippocampus 17/53, amygdala 18/54, entorhinal 1006/2006,
+parahippocampal 1016/2016; CSF 24). SynthSeg often labels the thin CSF in the
+interpeduncular fossa as ventral DC or brainstem; in a 3 mm shell around these labels,
+voxels darker on T1 than the midpoint between CSF and tissue are moved back to CSF. The
+old method is kept in the code as `make_cistern_masks_v1()`.
 
 ### Validation against manual masks
 
 | Case | Cistern | Manual | v1 (boxes) | v2 |
 |---|---|---|---|---|
-| Case 1 (1 mm) | interpeduncularis | 0.80 cm³ | 6.18 cm³, Dice 0.17 | 1.25 cm³, Dice 0.51 |
+| Case 1 (1 mm) | interpeduncularis | 0.80 cm³ | 6.18 cm³, Dice 0.17 | 0.80 cm³, Dice 0.56 |
 | Case 2 (7T, 0.7 mm) | magna | 5.30 cm³ | 8.05 cm³, Dice 0.43 | 3.58 cm³, Dice 0.60 |
 | Case 1 (1 mm) | ambiens (lateral part of the manual mask) | 2.81 cm³ | — | 3.32 cm³, Dice 0.66 |
 | Case 1 (1 mm) | quadrigeminalis (midline part of the manual mask) | 4.37 cm³ | — | 5.71 cm³, Dice 0.66 |
@@ -65,7 +80,10 @@ In case 2, 37% of the manual cisterna magna lies outside VolBrain's brain mask
 (cropped at the foramen magnum) and only 55% of it is labelled CSF by VolBrain, so
 no method working on the VolBrain CSF mask can reach the rest; v2 recovers 91% of
 the reachable part. The ambiens and quadrigeminalis limits were set on the same case they are
-scored on, so these two Dice values are optimistic. Two cases are not a validation
+scored on, so these two Dice values are optimistic (so is the interpeduncular value: the
+peduncle limit was added after looking at this case). The SynthSeg route has no
+manual-mask comparison yet; on 20 T1 scans (10 controls, 10 Parkinson's disease) the
+interpeduncular cistern ranged 0.13–1.25 cm³ and every mask was checked visually. Two cases are not a validation
 study: treat the volumes as research measurements and check every result
 visually.
 
@@ -92,7 +110,14 @@ Scripted modules can be loaded in 3D Slicer without compiling anything:
 
 ## Usage
 
-**Step 1 - Get a VolBrain segmentation.** Upload the subject's T1-weighted
+**Step 1 - Get a segmentation.** Either VolBrain (below) or SynthSeg: run the
+SlicerSynthSeg module with the model *SynthSeg 2.0 + cortical parcellation* (or load a
+`*_synthseg.nii.gz` made with `mri_synthseg --parc` / turkbrain.net), then in Step 3 choose
+*Segmentation source: SynthSeg 2.0 + cortical parcellation* and select the T1 and the
+SynthSeg result (label volume or segmentation). SynthSeg 1.0 has no extra-ventricular CSF
+label and cannot be used.
+
+For VolBrain: Upload the subject's T1-weighted
 volumetric MRI to [VolBrain](https://volbrain.net/) and run the segmentation
 pipeline. From the finished VolBrain job, download at least these three
 files:
@@ -117,7 +142,8 @@ drag and drop) to load all three files: the T1 volume, `native_tissues`, and
    two packages into Slicer; restart Slicer once if prompted, then click
    Calculate again).
 5. Result: a segmentation named "Cisterna volumes" is added to the scene (red
-   = magna, yellow = ambiens, cyan = interpeduncularis), outlines appear
+   = magna, yellow = ambiens, cyan = interpeduncularis, green = cruralis, purple =
+   quadrigeminalis), outlines appear
    automatically in the 2D slice views and the 3D view, and the module panel
    table lists voxel/mm³/cm³ volumes for each cistern.
 
@@ -125,6 +151,8 @@ drag and drop) to load all three files: the T1 volume, `native_tissues`, and
 
 - VolBrain's atlas has no cistern-level labels - the method is a
   landmark-based heuristic, not an atlas shortcut.
+- SynthSeg's CSF reaches further around the cerebellum, so its cisterna magna is larger
+  (it includes retrocerebellar CSF). Do not mix VolBrain and SynthSeg values in one study.
 - Most missed voxels (51-79% depending on the case) come from VolBrain's
   brain-extraction mask cropping the image at the foramen magnum - a ceiling
   independent of this extension.
