@@ -275,6 +275,14 @@ CRURAL_FRAC = 0.4                 # anterior fraction of the midbrain A-P extent
 MESIAL_TEMPORAL = (31, 32, 47, 48, 116, 117, 170, 171)   # amygdala, hippocampus, entorhinal area, parahippocampal gyrus
 BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
 
+# Label schemes. vol2Brain / volBrain native_structures use Neuromorphometrics labels; SynthSeg (2.0, with --parc)
+# uses FreeSurfer labels and also gives the extra-ventricular CSF (24) in the same file.
+LABELS_VOL2BRAIN = dict(bs=(35,), v4=(11,), vdc=(61, 62), cbl=(38, 39, 40, 41, 71, 72, 73),
+                        mesial_temporal=(31, 32, 47, 48, 116, 117, 170, 171), ventricles=VENTRICULAR_LABELS)
+LABELS_SYNTHSEG = dict(bs=(16,), v4=(15,), vdc=(28, 60), cbl=(7, 8, 46, 47),
+                       mesial_temporal=(17, 53, 18, 54, 1006, 2006, 1016, 2016), ventricles=(4, 5, 14, 15, 43, 44),
+                       csf=(24,))
+
 def _largest_touching(cand, touch):
     lab, n = ndi.label(cand, np.ones((3,3,3), bool))
     if n == 0: return np.zeros_like(cand)
@@ -284,14 +292,15 @@ def _largest_touching(cand, touch):
     keep = ids[sizes >= max(20, 0.05 * sizes.max())]
     return np.isin(lab, keep)
 
-def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
+def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None, lab=None):
     """Landmark/surface-based cistern masks (v2). ext and st must be in CANONICAL_AXCODES order (P, S, R);
     vs are voxel sizes in that order (mm)."""
     v0, v1, v2 = vs; sh = ext.shape
-    bs = st == BS; mb_like = bs | np.isin(st, VDC)
+    lab = lab or LABELS_VOL2BRAIN
+    bs = np.isin(st, lab['bs']); mb_like = bs | np.isin(st, lab['vdc'])
     if not bs.any():
         raise ValueError("Landmark not found: brainstem (label 35)")
-    if not (st == V4).any():
+    if not np.isin(st, lab['v4']).any():
         raise ValueError("Landmark not found: 4th_ventricle (label 11)")
     # midline: brainstem centre (L-R) in its upper half - more central than the 4th ventricle in tilted heads
     q = np.argwhere(bs); q = q[q[:, 1] >= np.median(q[:, 1])]
@@ -333,7 +342,7 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     # --- lateral cisterns (crural + ambiens): CSF between the midbrain and the mesial temporal lobe
     # (uncus, parahippocampal gyrus, hippocampus/fimbria). A voxel belongs here if it is within 8 mm of the
     # midbrain and not clearly on the temporal side of the gap (d_mb <= d_temporal + 3 mm).
-    tl = np.isin(st, MESIAL_TEMPORAL) & slab
+    tl = np.isin(st, lab['mesial_temporal']) & slab
     d_t = np.full(sh, 1e9)
     for S in range(s_lo, s_hi + 1):
         if tl[:, S, :].any():
@@ -376,10 +385,10 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None):
     seed_q = cand_q & (np.abs(X) <= 3) & (P <= Qp + 6 / v0) & (S_ <= top)
     quad = _largest_touching(cand_q, seed_q)
     # --- magna: CSF below the cerebellum and behind the medulla
-    cbl = np.isin(st, CBL + VERMIS)
+    cbl = np.isin(st, lab['cbl'])
     any_c = cbl.any(axis=1); low_c = np.where(any_c, cbl.argmax(axis=1), sh[1])        # lowest cerebellar S per (P,R) column
     below_c = np.arange(sh[1])[None, :, None] <= (low_c[:, None, :] + 1)
-    v4 = np.argwhere(st == V4); v4_low = v4[:, 1].min()
+    v4 = np.argwhere(np.isin(st, lab['v4'])); v4_low = v4[:, 1].min()
     bs_post = np.full(sh[1], np.nan)
     for S in range(sh[1]):
         r = np.argwhere(bs[:, S, :])
@@ -462,3 +471,29 @@ def run_cistern_analysis(
     total_csf = volume_from_mask(external_csf, voxel_volume_mm3)
 
     return cistern_masks, external_csf, volumes, total_csf
+
+
+def run_cistern_analysis_synthseg(seg_data: np.ndarray, affine: np.ndarray, voxel_sizes: Tuple[float, float, float]):
+    """Same analysis on a single SynthSeg label map (run with --parc). The extra-ventricular CSF is SynthSeg
+    label 24; ventricles are reported separately. Returns (cistern_masks, external_csf, volumes, extra), where
+    extra holds ventricle and total CSF volumes (mm3)."""
+    L = LABELS_SYNTHSEG
+    reorient = Reorientation(affine)
+    seg_c = reorient.to_canon(seg_data.astype(np.int32))
+    vs_c = reorient.canonical_voxel_sizes(voxel_sizes)
+    ext_c = np.isin(seg_c, L["csf"])
+    masks_c = make_cistern_masks(ext_c, seg_c, vs_c, lab=L)
+    masks = {k: reorient.from_canon(m.astype(np.int16)).astype(bool) for k, m in masks_c.items()}
+    vv = float(np.prod(voxel_sizes))
+    volumes = {k: volume_from_mask(m, vv) for k, m in masks.items()}
+    seg = seg_data.astype(np.int32)
+    extra = {
+        "lateral_ventricles_mm3": float(np.isin(seg, (4, 5, 43, 44)).sum() * vv),
+        "third_ventricle_mm3": float((seg == 14).sum() * vv),
+        "fourth_ventricle_mm3": float((seg == 15).sum() * vv),
+        "extraventricular_csf_mm3": float(np.isin(seg, L["csf"]).sum() * vv),
+        "intracranial_mm3": float((seg > 0).sum() * vv),
+    }
+    external_csf = reorient.from_canon(ext_c.astype(np.int16)).astype(bool)
+    return masks, external_csf, volumes, extra
+
