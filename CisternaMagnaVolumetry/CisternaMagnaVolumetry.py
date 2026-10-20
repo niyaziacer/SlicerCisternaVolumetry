@@ -146,8 +146,9 @@ class CisternaMagnaVolumetryWidget(ScriptedLoadableModuleWidget, VTKObservationM
         noteLabel = qt.QLabel(
             "Note: landmark-based method (v2). Neither VolBrain nor SynthSeg has cistern labels; the cisterns "
             "are cut out of the CSF mask relative to the midbrain and cerebellum. Validated against manual "
-            "masks on 2 cases only. With VolBrain the cisterna magna is partly cropped at the foramen "
-            "magnum; SynthSeg does not crop it. Check every result visually."
+            "masks on 2 cases only. The cisterna magna ends at the lower edge of the segmentation "
+            "(about the foramen magnum); VolBrain may crop it higher. Do not mix VolBrain and SynthSeg "
+            "values in one study. Check every result visually."
         )
         noteLabel.setWordWrap(True)
         noteLabel.setStyleSheet("color: gray; font-size: 11px;")
