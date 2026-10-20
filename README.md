@@ -53,7 +53,8 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
   the midline, up to 12 mm higher and 30 mm back, under the splenium. Laterally it
   is continuous with the ambient cistern; the boundary is the lateral end of the
   quadrigeminal plate.
-- **Cisterna magna.** CSF below the cerebellum (in each column, not above the
+- **Cisterna magna.** CSF below the cerebellum (only in columns that have cerebellum above them, so
+  the retrocerebellar CSF behind the hemispheres is excluded; in each column not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
   higher than 8 mm above the lower end of the 4th ventricle.
 

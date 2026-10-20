@@ -273,6 +273,7 @@ AMB_DOWN = 6                      # ambiens: mm below the pontomesencephalic jun
 QUAD_UP, QUAD_DEPTH, QUAD_HALFW = 12, 15, 12   # quadrigeminal cistern beside the tectum (mm)
 QUAD_DEPTH_UP, QUAD_HALFW_UP = 30, 7             # above the brainstem (pineal region, vein of Galen)
 CRURAL_FRAC = 0.4                 # anterior fraction of the midbrain A-P extent taken as the cerebral peduncle
+MAGNA_UNDER_CBL = True            # magna only under the cerebellum: no retrocerebellar CSF
 MESIAL_TEMPORAL = (31, 32, 47, 48, 116, 117, 170, 171)   # amygdala, hippocampus, entorhinal area, parahippocampal gyrus
 BS, V4, VDC, CBL, VERMIS = 35, 11, (61, 62), (38, 39, 40, 41), (71, 72, 73)
 
@@ -402,6 +403,8 @@ def make_cistern_masks(ext, st, vs=(1.0, 1.0, 1.0), info=None, lab=None):
     cbl = np.isin(st, lab['cbl'])
     any_c = cbl.any(axis=1); low_c = np.where(any_c, cbl.argmax(axis=1), sh[1])        # lowest cerebellar S per (P,R) column
     below_c = np.arange(sh[1])[None, :, None] <= (low_c[:, None, :] + 1)
+    if MAGNA_UNDER_CBL:                                   # only columns with cerebellum above (no retrocerebellar CSF)
+        below_c = below_c & any_c[:, None, :]
     v4 = np.argwhere(np.isin(st, lab['v4'])); v4_low = v4[:, 1].min()
     bs_post = np.full(sh[1], np.nan)
     for S in range(sh[1]):
