@@ -56,7 +56,10 @@ defines the cisterns relative to the midbrain and cerebellum surfaces:
 - **Cisterna magna.** CSF below the cerebellum (only in columns that have cerebellum above them, so
   the retrocerebellar CSF behind the hemispheres is excluded; in each column not above the
   lowest cerebellar voxel), behind the medulla, within 15 mm of the midline and not
-  higher than 8 mm above the lower end of the 4th ventricle. The lateral
+  higher than 8 mm above the lower end of the 4th ventricle. The lower surface of the cerebellum is
+  smoothed first (5 mm grey opening of its height map), so CSF in the fissures between the folia is
+  not counted. The 15 mm lateral limit is an operational limit (about half the transverse diameter
+  of the foramen magnum); no membrane separates the cistern laterally. The lateral
   cerebellomedullary cisterns, which some authors count as the lateral part of the
   cisterna magna, are not included. The lower limit is the lower edge of the
   segmentation. In SynthSeg this edge lies at the level of the foramen magnum (from the
